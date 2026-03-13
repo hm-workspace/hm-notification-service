@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\NotificationService.Repository\NotificationService.Repository.csproj" />
+    <ProjectReference Include="..\NotificationService.InternalModels\NotificationService.InternalModels.csproj" />
+    <ProjectReference Include="..\NotificationService.Utils\NotificationService.Utils.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
