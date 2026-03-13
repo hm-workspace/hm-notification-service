@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using NotificationService.Utils.Common;
 using NotificationService.InternalModels.DTOs;
 using NotificationService.InternalModels.Entities;
@@ -6,6 +7,7 @@ using NotificationService.Services;
 
 namespace NotificationService.Api.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/notifications")]
 public class NotificationsController : ControllerBase
