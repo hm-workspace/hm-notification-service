@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NotificationService.Utils.Common;
 using NotificationService.InternalModels.DTOs;
-using NotificationService.InternalModels.Entities;
 using NotificationService.Services;
 
 namespace NotificationService.Api.Controllers;
@@ -12,76 +11,61 @@ namespace NotificationService.Api.Controllers;
 [Route("api/notifications")]
 public class NotificationsController : ControllerBase
 {
-    [HttpGet]
-    public ActionResult<ApiResponse<IEnumerable<NotificationDto>>> GetAll([FromQuery] string? status)
-    {
-        var query = NotificationStore.Notifications.AsEnumerable();
-        if (!string.IsNullOrWhiteSpace(status))
-        {
-            query = query.Where(x => x.Status.Equals(status, StringComparison.OrdinalIgnoreCase));
-        }
+    private readonly INotificationService _notificationService;
 
-        return Ok(ApiResponse<IEnumerable<NotificationDto>>.Ok(query.Select(NotificationDto.FromEntity).ToList()));
+    public NotificationsController(INotificationService notificationService)
+    {
+        _notificationService = notificationService;
+    }
+
+    [HttpGet]
+    public async Task<ActionResult<ApiResponse<IEnumerable<NotificationDto>>>> GetAll([FromQuery] string? status)
+    {
+        var notifications = await _notificationService.GetAllAsync(status);
+        return Ok(ApiResponse<IEnumerable<NotificationDto>>.Ok(notifications));
     }
 
     [HttpGet("{id:int}")]
-    public ActionResult<ApiResponse<NotificationDto>> GetById(int id)
+    public async Task<ActionResult<ApiResponse<NotificationDto>>> GetById(int id)
     {
-        var notification = NotificationStore.Notifications.FirstOrDefault(x => x.Id == id);
+        var notification = await _notificationService.GetByIdAsync(id);
         if (notification is null)
         {
             return NotFound(ApiResponse<NotificationDto>.Fail("Notification not found"));
         }
 
-        return Ok(ApiResponse<NotificationDto>.Ok(NotificationDto.FromEntity(notification)));
+        return Ok(ApiResponse<NotificationDto>.Ok(notification));
     }
 
     [HttpPost]
-    public ActionResult<ApiResponse<NotificationDto>> Create([FromBody] CreateNotificationDto dto)
+    public async Task<ActionResult<ApiResponse<NotificationDto>>> Create([FromBody] CreateNotificationDto dto)
     {
-        var id = Interlocked.Increment(ref NotificationStore.NotificationSeed);
-        var notification = new NotificationEntity
-        {
-            Id = id,
-            Recipient = dto.Recipient,
-            Channel = dto.Channel,
-            Subject = dto.Subject,
-            Message = dto.Message,
-            Status = "Queued",
-            CreatedAt = DateTime.UtcNow,
-            SentAt = null
-        };
-
-        NotificationStore.Notifications.Add(notification);
-        return CreatedAtAction(nameof(GetById), new { id }, ApiResponse<NotificationDto>.Ok(NotificationDto.FromEntity(notification), "Notification queued"));
+        var notification = await _notificationService.CreateAsync(dto);
+        return CreatedAtAction(nameof(GetById), new { id = notification.Id }, ApiResponse<NotificationDto>.Ok(notification, "Notification queued"));
     }
 
     [HttpPost("{id:int}/send")]
-    public ActionResult<ApiResponse<NotificationDto>> Send(int id)
+    public async Task<ActionResult<ApiResponse<NotificationDto>>> Send(int id)
     {
-        var notification = NotificationStore.Notifications.FirstOrDefault(x => x.Id == id);
+        var notification = await _notificationService.SendAsync(id);
         if (notification is null)
         {
             return NotFound(ApiResponse<NotificationDto>.Fail("Notification not found"));
         }
 
-        notification.Status = "Sent";
-        notification.SentAt = DateTime.UtcNow;
-        return Ok(ApiResponse<NotificationDto>.Ok(NotificationDto.FromEntity(notification), "Notification sent"));
+        return Ok(ApiResponse<NotificationDto>.Ok(notification, "Notification sent"));
     }
 
     [HttpPost("{id:int}/fail")]
-    public ActionResult<ApiResponse<NotificationDto>> MarkFailed(int id, [FromBody] FailureReasonDto dto)
+    public async Task<ActionResult<ApiResponse<NotificationDto>>> MarkFailed(int id, [FromBody] FailureReasonDto dto)
     {
-        var notification = NotificationStore.Notifications.FirstOrDefault(x => x.Id == id);
+        var notification = await _notificationService.MarkFailedAsync(id, dto.Reason);
         if (notification is null)
         {
             return NotFound(ApiResponse<NotificationDto>.Fail("Notification not found"));
         }
 
-        notification.Status = "Failed";
-        notification.FailureReason = dto.Reason;
-        return Ok(ApiResponse<NotificationDto>.Ok(NotificationDto.FromEntity(notification), "Notification marked as failed"));
+        return Ok(ApiResponse<NotificationDto>.Ok(notification, "Notification marked as failed"));
     }
 }
 

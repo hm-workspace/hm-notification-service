@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NotificationService.Data;
 using NotificationService.Repository;
+using NotificationService.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,7 +30,8 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddControllers();
 builder.Services.AddScoped<IDbConnectionFactory, SqlConnectionFactory>();
-builder.Services.AddScoped<INotificationRepository, DapperNotificationRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<INotificationService, NotificationService.Services.NotificationService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -57,6 +59,11 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+}
+
 app.UseSwagger(options =>
 {
     options.RouteTemplate = "api/notifications/swagger/{documentName}/swagger.json";
@@ -76,6 +83,7 @@ app.MapControllers();
 app.MapGet("/health", () => Results.Ok());
 
 app.Run();
+
 
 
 
