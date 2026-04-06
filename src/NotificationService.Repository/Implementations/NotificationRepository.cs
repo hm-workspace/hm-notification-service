@@ -1,70 +1,58 @@
 ﻿using Dapper;
 using NotificationService.Data;
 using NotificationService.InternalModels.Entities;
+using System.Data;
 
 namespace NotificationService.Repository;
 
-public class NotificationRepository : INotificationRepository
+public class NotificationRepository : BaseRepository, INotificationRepository
 {
-    private readonly IDbConnectionFactory _connectionFactory;
-
     public NotificationRepository(IDbConnectionFactory connectionFactory)
+        : base(connectionFactory)
     {
-        _connectionFactory = connectionFactory;
     }
 
     public async Task<IReadOnlyCollection<NotificationEntity>> GetAllAsync()
     {
-        using var connection = _connectionFactory.CreateConnection();
-        const string sql = "SELECT * FROM Notifications";
-        var rows = await connection.QueryAsync<NotificationEntity>(sql);
+        var rows = await QueryAsync<NotificationEntity>(
+            StoredProcedureNames.GetNotifications,
+            commandType: CommandType.StoredProcedure);
         return rows.ToList();
     }
 
     public async Task<IReadOnlyCollection<NotificationEntity>> GetByStatusAsync(string status)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        const string sql = "SELECT * FROM Notifications WHERE Status = @Status";
-        var rows = await connection.QueryAsync<NotificationEntity>(sql, new { Status = status });
+        var rows = await QueryAsync<NotificationEntity>(
+            StoredProcedureNames.GetNotificationsByStatus,
+            new { Status = status },
+            commandType: CommandType.StoredProcedure);
         return rows.ToList();
     }
 
-    public async Task<NotificationEntity?> GetByIdAsync(int id)
+    public Task<NotificationEntity?> GetByIdAsync(int id)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        const string sql = "SELECT * FROM Notifications WHERE Id = @Id";
-        return await connection.QueryFirstOrDefaultAsync<NotificationEntity>(sql, new { Id = id });
+        return QuerySingleOrDefaultAsync<NotificationEntity>(
+            StoredProcedureNames.GetNotificationById,
+            new { Id = id },
+            commandType: CommandType.StoredProcedure);
     }
 
     public async Task<NotificationEntity> CreateAsync(NotificationEntity entity)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        const string sql = @"
-            INSERT INTO Notifications (Recipient, Channel, Subject, Message, Status, CreatedAt, SentAt, FailureReason)
-            VALUES (@Recipient, @Channel, @Subject, @Message, @Status, @CreatedAt, @SentAt, @FailureReason);
-            SELECT CAST(SCOPE_IDENTITY() as int);";
-
-        var id = await connection.ExecuteScalarAsync<int>(sql, entity);
+        var id = await ExecuteScalarAsync<int>(
+            StoredProcedureNames.CreateNotification,
+            entity,
+            commandType: CommandType.StoredProcedure);
         entity.Id = id;
         return entity;
     }
 
     public async Task<bool> UpdateAsync(NotificationEntity entity)
     {
-        using var connection = _connectionFactory.CreateConnection();
-        const string sql = @"
-            UPDATE Notifications 
-            SET Recipient = @Recipient,
-                Channel = @Channel,
-                Subject = @Subject,
-                Message = @Message,
-                Status = @Status,
-                CreatedAt = @CreatedAt,
-                SentAt = @SentAt,
-                FailureReason = @FailureReason
-            WHERE Id = @Id";
-
-        var rowsAffected = await connection.ExecuteAsync(sql, entity);
+        var rowsAffected = await ExecuteAsync(
+            StoredProcedureNames.UpdateNotification,
+            entity,
+            commandType: CommandType.StoredProcedure);
         return rowsAffected > 0;
     }
 }
